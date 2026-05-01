@@ -1,0 +1,87 @@
+name: idm
+services:
+  caddy:
+    container_name: caddy
+    image: docker.io/caddy/caddy:2.11.2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - target: /etc/caddy/Caddyfile
+        source: $PWD/Caddyfile
+        type: bind
+      - target: /data
+        source: caddy_data
+        type: volume
+      - target: /config
+        source: caddy_config
+        type: volume
+    networks:
+      public:
+        priority: 10
+      kanidm-internal:
+        priority: 5
+
+  vol-init:
+    image: docker.io/alpine/alpine:3.22.4 #opensuse/leap:latest #alpine:3.22.4
+    depends_on:
+      caddy:
+        condition: service_started
+    command: >
+      sh -c "chown -R 1000:1000 /certs/caddy/ &&
+      chown -R 1000:1000 /data &&
+      if [ ! -e /data/db/ ]; then mkdir /data/db/; fi" &&
+      chown 1000:1000 /data/db/ &&
+      chmod 750 /data/db/"
+    volumes:
+      - target: /data
+        source: kanidmd
+        type: volume
+      - target: /certs
+        source: caddy_data
+        type: volume
+
+  kanidm:
+    container_name: kanidm
+    image: docker.io/kanidm/server:1.9.2
+    ports:
+      - "8443:8443" #HTTPS
+      - "3636:3636" #LDAPS
+    depends_on:
+      vol-init:
+        condition: service_completed_successfully
+    user: "1000:1000"
+    env_file: .env
+    environment:
+      KANIDM_DOMAIN: $DOMAIN
+      KANIDM_ORIGIN: "https://${FQDN}"
+      KANIDM_BINDADDRESS: "0.0.0.0:8443"
+      KANIDM_DB_PATH: /data/db/kanidm.db
+      KANIDM_TLS_CHAIN: /certs/${FQDN}.crt
+      KANIDM_TLS_KEY: /certs/${FQDN}.key
+      KANIDM_LOG_LEVEL: debug
+      #KANIDM_ROLE: write_replica
+    volumes:
+      - target: /data
+        source: kanidmd
+        type: volume
+      - target: /certs
+        source: caddy_data
+        read_only: true
+        volume:
+          subpath: caddy/certificates/acme-v02.api.letsencrypt.org-directory/${FQDN}
+        type: volume
+    networks:
+      - kanidm-internal
+
+volumes:
+  kanidmd:
+  caddy_config:
+  caddy_data:
+
+networks:
+  public:
+  kanidm-internal:
+    internal: true

@@ -1,0 +1,7 @@
+idm.example.com {
+    reverse_proxy "https://kanidm:8443" {
+        transport http {
+            tls_server_name idm.example.com
+        }
+    } 
+}
