@@ -32,7 +32,7 @@ services:
     command: >
       sh -c "chown -R 1000:1000 /certs/caddy/ &&
       chown -R 1000:1000 /data &&
-      if [ ! -e /data/db/ ]; then mkdir /data/db/; fi" &&
+      if      KANIDM_ ! -e /data/db/ ]; then mkdir /data/db/; fi" &&
       chown 1000:1000 /data/db/ &&
       chmod 750 /data/db/"
     volumes:
@@ -55,14 +55,41 @@ services:
     user: "1000:1000"
     env_file: .env
     environment:
+      # Core Server Settings
       KANIDM_DOMAIN: $DOMAIN
       KANIDM_ORIGIN: "https://${FQDN}"
-      KANIDM_BINDADDRESS: "0.0.0.0:8443"
       KANIDM_DB_PATH: /data/db/kanidm.db
       KANIDM_TLS_CHAIN: /certs/${FQDN}.crt
       KANIDM_TLS_KEY: /certs/${FQDN}.key
-      KANIDM_LOG_LEVEL: debug
-      #KANIDM_ROLE: write_replica
+      KANIDM_LOG_LEVEL: info
+      
+      # Network & Trust Settings
+      KANIDM_BINDADDRESS: "0.0.0.0:8443"
+      KANIDM_LDAPBINDADDRESS: "0.0.0.0:3636"
+      #KANIDM_TRUST_X_FORWARD_FOR: true/false
+      #KANIDM_ADMIN_BIND_PATH: ""                 # Admin bind path
+      
+      # Backup
+      KANIDM_ONLINE_BACKUP_PATH: ""              # Online backup path
+      KANIDM_ONLINE_BACKUP_SCHEDULE: ""          # Cron schedule for online backups
+      KANIDM_ONLINE_BACKUP_VERSIONS: ""          # Number of online backup versions to keep
+
+      # Replication
+      KANIDM_ROLE: write_replica
+      KANIDM_REPLICATION_ORIGIN: ""              # Replication origin URL
+      KANIDM_REPLICATION_BINDADDRESS: ""         # Replication bind address
+      KANIDM_REPLICATION_TASK_POLL_INTERVAL: ""  # Replication task poll interval in seconds
+
+      # Monitoring
+      #KANIDM_OTEL_GRPC_URL: ""    
+      
+      # MTLS Configuration
+      #KANIDM_TLS_CLIENT_CA: ""                   # TLS client CA file path for mutual TLS
+      
+      # Server Tuning
+      #KANIDM_DB_FS_TYPE: "other" #or "zfs"       # Database filesystem type, either zfs or generic
+      #KANIDM_DB_ARC_SIZE: ""                     # Database ARC size in bytes     
+      
     volumes:
       - target: /data
         source: kanidmd
